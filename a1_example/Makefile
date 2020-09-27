@@ -1,0 +1,23 @@
+# .DEFAULT_GOAL=all
+
+CC=gcc
+CFLAGS=-fsanitize=signed-integer-overflow -fsanitize=undefined -g -std=gnu99 -O2 -Wall -Wextra -Wno-sign-compare -Wno-unused-parameter -Wno-unused-variable -Wshadow
+
+CLIENT=a1_example_client
+SERVER=a1_example_server
+CLIENT2=a1_example_client2
+SERVER2=a1_example_server2
+
+example: a1_lib.c example_client.c example_server.c
+	$(CC) -o $(CLIENT) $(CFLAGS) example_client.c a1_lib.c
+	$(CC) -o $(SERVER) $(CFLAGS) example_server.c a1_lib.c
+
+example2: a1_lib.c example_client.c example_server2.c
+	$(CC) -o $(CLIENT2) $(CFLAGS) example_client.c a1_lib.c
+	$(CC) -o $(SERVER2) $(CFLAGS) example_server2.c a1_lib.c
+
+clean:
+	rm -rf $(CLIENT) $(SERVER)
+clean2:
+	rm -rf $(CLIENT2) $(SERVER2)
+
