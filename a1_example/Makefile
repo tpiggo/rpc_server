@@ -12,8 +12,8 @@ example: a1_lib.c example_client.c example_server.c
 	$(CC) -o $(CLIENT) $(CFLAGS) example_client.c a1_lib.c
 	$(CC) -o $(SERVER) $(CFLAGS) example_server.c a1_lib.c
 
-example2: a1_lib.c example_client.c example_server2.c
-	$(CC) -o $(CLIENT2) $(CFLAGS) example_client.c a1_lib.c
+example2: a1_lib.c example_client2.c example_server2.c
+	$(CC) -o $(CLIENT2) $(CFLAGS) example_client2.c a1_lib.c
 	$(CC) -o $(SERVER2) $(CFLAGS) example_server2.c a1_lib.c
 
 clean:

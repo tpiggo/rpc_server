@@ -2,6 +2,7 @@ typedef void (*callback)(void);
 void register_callback(callback p_reg);
 
 typedef int (*callback_int_t)(int,int);
+typedef char (*callback_char_t)(const void * , const void*);
 void register_callback_int(callback_int_t cit);
 int run_callit(int a, int b );
 
