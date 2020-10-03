@@ -2,6 +2,7 @@
 #include <string.h>
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <unistd.h>
 
 #include "a1_lib.h"
 
@@ -12,11 +13,11 @@ int main(void) {
   char user_input[BUFSIZE] = { 0 };
   char server_msg[BUFSIZE] = { 0 };
 
-  if (connect_to_server("0.0.0.0", 10000, &sockfd) < 0) {
+  if (connect_to_server("127.0.0.1", 8080, &sockfd) < 0) {
     fprintf(stderr, "Client main(): oh no\n");
     return -1;
   }
-  while (strcmp(user_input, "quit\n") && strcmp(user_input, "terminate backend\n")) {
+  while (1) {
     memset(user_input, 0, sizeof(user_input));
     memset(server_msg, 0, sizeof(server_msg));
 
@@ -30,8 +31,15 @@ int main(void) {
       break;
     }
     printf("Server: %s\n", server_msg);
+    if( strcmp(user_input, "quit\n") == 0 ){
+      printf("You've quit.");
+      break;
+    } else if (strcmp(user_input, "end\n") == 0){
+      printf("You've ended\n");
+      break;
+    }
   }
-
+  close(sockfd);
   return 0;
 }
 
