@@ -17,7 +17,7 @@
 #include "rpc.h"
 
 #define BUFSIZE 1024
-#define MAXCLIENTS 2
+#define MAXCLIENTS 10
 #define PIPEBUF 64
 
 /*
@@ -246,6 +246,7 @@ int accept_on_server_socket(rpc_t *serv){
         // kill the process
         return -1;
     }
+	printf("clientfd accepted on : %d\n", getpid());
     send_message(clientfd, (const char*)serv, BUFSIZE);
     return clientfd;
 }
@@ -256,31 +257,32 @@ int accept_on_server_socket(rpc_t *serv){
 * clients: client socket
 * server: pointer to the server
 */
-int handle_client(int client, rpc_t* server){
-  printf("Started serv with server->shutdown=%d\n", server->shutdown);
+int serv_client(int client, rpc_t *server){
   int quit_shut = 0;
   // enter the loop if the server shutdown is not the current setting.
   // If it is, cancels closes the server.
-    while (server->shutdown == 0) {
-      char msg[BUFSIZE];
-      memset(msg, 0, sizeof(msg));
-      // Receive the message and send it to the
-      ssize_t byte_count = recv_message(client, msg, BUFSIZE);
-      if (byte_count <= 0) {
-        break;
-      }
-      client_msg* amess = (client_msg*)msg;
-	  printf("Command: %s Args: %s\n", amess->cmd, amess->args);
-      if (strcmp(amess->cmd, "quit") == 0){
-        quit_shut = 1;
-        break;
-      } else if (strcmp(amess->cmd, "exit") == 0){
-		  break;
-	  }
-      RPC_Serve(server, amess->cmd, amess->args, client);
+    while (1) {
+		char msg[BUFSIZE];
+		memset(msg, 0, sizeof(msg));
+		// Receive the message and send it to the
+		ssize_t byte_count = recv_message(client, msg, BUFSIZE);
+		if (byte_count <= 0) {
+			quit_shut = 1;
+			break;
+		}
+		client_msg* amess = (client_msg*)msg;
+		printf("Command: %s Args: %s\n", amess->cmd, amess->args);
+		if (strcmp(amess->cmd, "quit") == 0){
+			quit_shut = -1;
+			break;
+		} else if (strcmp(amess->cmd, "exit") == 0){
+			quit_shut = 5;
+			break;
+		}
+		RPC_Serve(server, amess->cmd, amess->args, client);
     }
 	server_msg return_msg = {"", "", 0};
-    strcpy(return_msg.ret_val, "Goodbye!\n");
+    strcpy(return_msg.ret_val, "Goodbye!");
 	send_message(client, (char *)&return_msg, BUFSIZE);
 	// Close the client here!
 	close(client);
@@ -288,7 +290,44 @@ int handle_client(int client, rpc_t* server){
     return quit_shut;
 }
 
-int serv_client(int clientfd, int writepipe[]){
+
+int isempty(child_t arr[], int length){
+	for(int i= 0; i < length; i++){
+		if (arr[i].childPID >= 0){
+			return 0;
+		}
+	}
+	return 1;
+}
+
+int isfull(child_t arr[], int length){
+	for(int i= 0; i < length; i++){
+		if (arr[i].childPID == -1){
+			return 0;
+		}
+	}
+	return 1;
+}
+
+void addclient(child_t arr[], int length, pid_t pid, int clientfd){
+	for (int i = 0; i < length; i++ ){
+		if (arr[i].childPID == -1){
+			arr[i].clientfd = clientfd;
+			arr[i].childPID = pid;
+			return;
+		}
+	}
+}
+
+int removeclientPID(child_t arr[], int length, pid_t pid){
+	for (int i = 0; i < length; i++ ){
+		if (arr[i].childPID == pid){
+			int hold = arr[i].clientfd;
+			arr[i].clientfd = -1;
+			arr[i].childPID = -1;
+			return hold;
+		}
+	}
 	return 0;
 }
 
@@ -309,17 +348,13 @@ int main(int argc, char* argv[]){
 	}
 	// variable space
 	char *myIP;
-	int port, clientfd;
+	int port, clientfd, ret, retstat;
 	memcpy(&myIP, &argv[1], sizeof(char*));
 	port = atoi(argv[2]);
 	rpc_t* server;
 	pid_t child;
-	struct child_t clients[MAXCLIENTS];
-	// Note here: pipe_PC is parent to child. pipe_CP is child to parent
-	int pipe_PC[2*MAXCLIENTS];
-	int pipe_CP[2*MAXCLIENTS];
+	child_t clients[MAXCLIENTS];
 	char readmsg[PIPEBUF];
-	int child_num;
 	// Start the server.
 	server = RPC_Init(myIP, port);
 	if (server == NULL){
@@ -331,55 +366,81 @@ int main(int argc, char* argv[]){
 		printf("Server listening on %s:%d\n", myIP, port);
 	}
 
-	//Create the pipe. If it fails; cancel!
-	if(pipe(pipe_PC) < 0){
-		printf("Can't create pipe_PC!\n");
-		return 1;
-	}
-	if(pipe(pipe_CP) < 0){
-		printf("Can't create pipe_PC!\n");
-		return 1;
+	for (int i =0; i<MAXCLIENTS; i++){
+		clients[i].childPID = -1;
+		clients[i].clientfd = -1;
 	}
 
+	while (1){
+		printf("Arr: ");
+		for (int i =0; i<MAXCLIENTS; i++){
+			printf(" %d;%d ", clients[i].childPID, clients[i].clientfd );
+		}
+		printf("\n");
+		clientfd = accept_on_server_socket(server);
+		if (clientfd < 0){
+			return -1;
+		}
+		printf("checking conditions with clientfd %d\n", clientfd);
+		if (isfull(clients, MAXCLIENTS)){
+			ret = wait(&retstat);
+			if ( WIFEXITED(retstat) && ret > 0 ){
+				printf("We closing, in isfull() %d\n", ret);
+				ret = removeclientPID(clients, MAXCLIENTS, ret);
+				printf("WEXIT %d\n",  WEXITSTATUS(retstat));
+				if (WEXITSTATUS(retstat) == 255){
+					server->shutdown = 1;
+				}
+				// close clientfd
+				close(ret);
+			}
+		}
 
-	for (int i = 0; i < MAXCLIENTS; i++){
-		child = fork();
-		if (child == 0){
-			close(pipe_PC[2*i+1]); // close unwanted write side
-			close(pipe_CP[2*i]); // close unwanted read side
-			child_num = i;
+		// Not mutually exclusive. Check again.
+		if (isempty(clients, MAXCLIENTS) == 0){
+			for(int i = 0; i < MAXCLIENTS; i++){
+				ret = waitpid(clients[i].childPID, &retstat, WNOHANG);
+				if ( WIFEXITED(retstat) && ret > 0){
+					// get bakc the client fd
+					printf("Closing connection with %d\n", ret);
+					printf("WEXIT %d\n",  WEXITSTATUS(retstat));
+					ret = removeclientPID(clients, MAXCLIENTS, ret);
+					if (WEXITSTATUS(retstat) == 255){
+						server->shutdown = 1;
+					}
+					// close clientfd
+					close(ret);
+				}
+			}
+		}
+		printf("checking conditions with clientfd %d\n", clientfd);
+		if ((child = fork()) == 0){
+			printf("We closing, after fork %d\n", server->sockfd);
+			close(server->sockfd);
+			int ret2 = serv_client(clientfd, server);
+			printf("Here! You've ended or quit with return status %d\n", ret2);
+			close(clientfd);
+			return ret2;
+		} else{
+			// Just add the client to the list of children
+			addclient(clients, MAXCLIENTS, child, clientfd);
+		}
+		// Make sure the child was not told to terminate backend prior to forking
+		if (server->shutdown){
+			printf("Shutdown stat = %d\n", server->shutdown);
 			break;
-		} else {
-			close(pipe_PC[2*i]); // close unwanted read side
-			close(pipe_CP[2*i+1]); // close unwanted write side
-			clients[i].childPID = child;
-			clients[i].clientfd = -1; 
 		}
 	}
-
-
-	if (child == 0){
-		printf("I am %d child! Now wait for a message!\n", child_num);
-		read(pipe_PC[2*child_num], readmsg, PIPEBUF);
-		printf("Received Message: %s", readmsg);
-		write(pipe_CP[2*child_num+1], "Clear as Day", PIPEBUF);
-		printf("Dying now!");
-		exit(0);
-	}
-
-	while (server->shutdown != 1){
-		clientfd = accept_on_server_socket(server);
-		// This is where we check to see if someone has returned!
-		// Read all the pipes and fined out if anyone has become free but more importantly
-		//If anyone has called for the server to die.
-		printf("Writing to children!\n");
-		write(pipe_PC[1], "Hello First My child!", PIPEBUF);
-		write(pipe_PC[3], "Hello Second My child!", PIPEBUF);
-		read(pipe_PC[0], readmsg, PIPEBUF);
-		printf("Child said: %s\n", readmsg);
-		read(pipe_PC[2], readmsg, PIPEBUF);
-		printf("Child said: %s\n", readmsg);
-		server->shutdown = handle_client(clientfd, server);
+	printf("Exited Main Loop\n");
+	while(isempty(clients, MAXCLIENTS) == 0){
+		ret = waitpid(-1, &retstat, WNOHANG);
+		if ( WIFEXITED(retstat) && ret > 0){
+			// get bakc the client fd
+			ret = removeclientPID(clients, MAXCLIENTS, ret);
+			printf("Closing connection with %d\n", ret);
+			// close clientfd
+			close(ret);
+		}
 	}
 	// printing the array of pid's *************
 	printf("array: ");

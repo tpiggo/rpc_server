@@ -58,9 +58,7 @@ void RPC_Close(rpc_t *r){
 * name: string with the name of the command we want to call
 * args: arguments which are to be sent.
 */
-void RPC_Call(rpc_t *r, char* name, char * args){
-
-    
+void RPC_Call(rpc_t *r, char* name, char * args){    
     char server_mes[BUFSIZE];
     memset(server_mes, 0, sizeof(server_mes));
     // send the input to server
@@ -73,12 +71,15 @@ void RPC_Call(rpc_t *r, char* name, char * args){
     ssize_t byte_count = recv_message(r->sockfd, server_mes, BUFSIZE);
     if (byte_count <= 0) {
         // terminate if something when awire
-        r->shutdown=1;
+        r->shutdown = 1;
     }
     server_msg* ret_msg = (server_msg*)server_mes; 
     if (ret_msg->error == 1){
         printf("%s\n", ret_msg->error_msg);
     }else{
+        if (strcmp(ret_msg->ret_val, "Goodbye!") == 0){
+            r->shutdown = 1;
+        }
         printf("%s\n", ret_msg->ret_val);
     }
 }
@@ -162,12 +163,6 @@ int main(int argc, char *argv[]){
         cmd = parse_line(user_input);
         // send the input to server
         RPC_Call(backend, cmd.cmd, cmd.args);
-        printf("shutdown==%d\n", backend->shutdown);
-        
-        // Quit the connection.
-        if (strcmp(user_input, "quit") == 0 || strcmp(user_input, "exit") == 0  ){
-            break;
-        }
         fflush(stdout);
     }
     RPC_Close(backend);
