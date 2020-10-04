@@ -19,4 +19,13 @@ int multiplyInts(int x, int y);
 float divideFloats(float x, float y);
 uint64_t factorial(int x);
 
+// User defined functions
+char ** parse_args(int length, char *args);
+int accept_on_server_socket(rpc_t *serv);
+int serv_client(int client, rpc_t *server);
+int isfull(child_t arr[], int length);
+int isempty(child_t arr[], int length);
+void addclient(child_t arr[], int length, pid_t pid, int clientfd);
+int removeclientPID(child_t arr[], int length, pid_t pid);
+
 #endif

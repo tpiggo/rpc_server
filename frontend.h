@@ -13,6 +13,7 @@
 rpc_t *RPC_Connect(char * host, int port);
 void RPC_Close(rpc_t *r);
 void RPC_Call(rpc_t *r, char* name, char * args);
+client_msg parse_line(char *input);
 
 
 #endif //FRONTEND_H

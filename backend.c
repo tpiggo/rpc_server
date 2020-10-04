@@ -290,7 +290,13 @@ int serv_client(int client, rpc_t *server){
     return quit_shut;
 }
 
-
+/*
+* Check if the children arr is empty
+* client within this loop. 
+* Params:
+* arr: array of children
+* length: length of the array
+*/
 int isempty(child_t arr[], int length){
 	for(int i= 0; i < length; i++){
 		if (arr[i].childPID >= 0){
@@ -300,6 +306,13 @@ int isempty(child_t arr[], int length){
 	return 1;
 }
 
+/*
+* Check if the children arr is full
+* client within this loop. 
+* Params:
+* arr: array of children
+* length: length of the array
+*/
 int isfull(child_t arr[], int length){
 	for(int i= 0; i < length; i++){
 		if (arr[i].childPID == -1){
@@ -309,6 +322,15 @@ int isfull(child_t arr[], int length){
 	return 1;
 }
 
+/*
+* Add a client to the array.
+* client within this loop. 
+* Params:
+* arr: array of children
+* length: length of the array
+* pid: pid of the client who accepted.
+* clientfd: file descriptor of the client.
+*/
 void addclient(child_t arr[], int length, pid_t pid, int clientfd){
 	for (int i = 0; i < length; i++ ){
 		if (arr[i].childPID == -1){
@@ -319,6 +341,14 @@ void addclient(child_t arr[], int length, pid_t pid, int clientfd){
 	}
 }
 
+/*
+* Add a client to the array.
+* client within this loop. 
+* Params:
+* arr: array of children
+* length: length of the array
+* pid: pid of the client who we need to remove.
+*/
 int removeclientPID(child_t arr[], int length, pid_t pid){
 	for (int i = 0; i < length; i++ ){
 		if (arr[i].childPID == pid){
@@ -365,22 +395,28 @@ int main(int argc, char* argv[]){
 		// Everything went well
 		printf("Server listening on %s:%d\n", myIP, port);
 	}
-
+	// Fix the client_t array. We wnt to input the child process and clientfd for said child into 
+	// this array. -1 indicates empty spot.
 	for (int i =0; i<MAXCLIENTS; i++){
 		clients[i].childPID = -1;
 		clients[i].clientfd = -1;
 	}
 
 	while (1){
-		printf("Arr: ");
-		for (int i =0; i<MAXCLIENTS; i++){
-			printf(" %d;%d ", clients[i].childPID, clients[i].clientfd );
+		// printing the array of pid's *************
+		printf("array: ");
+		for(int i =0; i<MAXCLIENTS; i++){
+			printf("{%d;%d} ", clients[i].childPID, clients[i].clientfd);
 		}
 		printf("\n");
+		// ****************
+		// Accept a new client. 
 		clientfd = accept_on_server_socket(server);
 		if (clientfd < 0){
 			return -1;
 		}
+		// Perform a check if the client array is full.
+		// This is a blocking check for the parent. No new clients can be accepted until a child has returned.
 		printf("checking conditions with clientfd %d\n", clientfd);
 		if (isfull(clients, MAXCLIENTS)){
 			ret = wait(&retstat);
@@ -395,7 +431,7 @@ int main(int argc, char* argv[]){
 				close(ret);
 			}
 		}
-
+		// Perform a check on all the children in array of children.
 		// Not mutually exclusive. Check again.
 		if (isempty(clients, MAXCLIENTS) == 0){
 			for(int i = 0; i < MAXCLIENTS; i++){
@@ -403,7 +439,6 @@ int main(int argc, char* argv[]){
 				if ( WIFEXITED(retstat) && ret > 0){
 					// get bakc the client fd
 					printf("Closing connection with %d\n", ret);
-					printf("WEXIT %d\n",  WEXITSTATUS(retstat));
 					ret = removeclientPID(clients, MAXCLIENTS, ret);
 					if (WEXITSTATUS(retstat) == 255){
 						server->shutdown = 1;
@@ -413,24 +448,27 @@ int main(int argc, char* argv[]){
 				}
 			}
 		}
-		printf("checking conditions with clientfd %d\n", clientfd);
+		// Forking the accepted client into child process.
 		if ((child = fork()) == 0){
-			printf("We closing, after fork %d\n", server->sockfd);
+			// Close the server socket in order to not accept clients on the child process.
 			close(server->sockfd);
+			// Serve the client.
 			int ret2 = serv_client(clientfd, server);
-			printf("Here! You've ended or quit with return status %d\n", ret2);
 			close(clientfd);
 			return ret2;
 		} else{
-			// Just add the client to the list of children
+			// Add the client to the list of children
 			addclient(clients, MAXCLIENTS, child, clientfd);
 		}
 		// Make sure the child was not told to terminate backend prior to forking
 		if (server->shutdown){
-			printf("Shutdown stat = %d\n", server->shutdown);
+			// Close the server socket to refuse any new connections!
+			close(server->sockfd);
 			break;
 		}
 	}
+	// Exiting the main loop. We simply need to wait on the clients to finish executing. 
+	// Waiting until no children are left.
 	printf("Exited Main Loop\n");
 	while(isempty(clients, MAXCLIENTS) == 0){
 		ret = waitpid(-1, &retstat, WNOHANG);
@@ -442,13 +480,6 @@ int main(int argc, char* argv[]){
 			close(ret);
 		}
 	}
-	// printing the array of pid's *************
-	printf("array: ");
-	for(int i =0; i<MAXCLIENTS; i++){
-		printf("{%d;%d} ", clients[i].childPID, clients[i].clientfd);
-	}
-	printf("\n");
-	// ****************
 
     RPC_Close(server);
     printf("Done main loop!\n");

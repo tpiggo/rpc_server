@@ -28,10 +28,15 @@ rpc_t *RPC_Connect(char *host, int port){
         fprintf(stderr, "RPC_Connect(): oh no\n");
         return NULL;
     }
+    printf("RPC sockfd: %d\n", sockfd);
     // Retreive the server rpc from the backend
-    int ret = recv_message(sockfd, message, BUFSIZE);
+    ssize_t ret = recv_message(sockfd, message, BUFSIZE);
+    if (ret <= 0){
+        return NULL;
+    }
     rpc_t* extra = (rpc_t *)message;
     rpc_t *serv = (struct rpc_t*)malloc(sizeof(struct rpc_t));
+    printf("NULL=%d", extra == NULL);
     serv->shutdown = extra->shutdown;
     serv->sockfd=sockfd;
     return serv;
@@ -115,12 +120,13 @@ client_msg parse_line(char *input){
         i++;
         token = strtok(NULL, " ");
     }
+    // Check if there was a command even sent.
     if (i == 0){
-        strcpy(command.cmd, "No Command");
+        strcpy(command.cmd, "");
         strcpy(command.args, "");
     }
     if (i == 1){
-        // only one word. Garbage in command.args. FIX!
+        // only one word. Empty arguments!
         strcpy(command.args, ""); 
     }
     return command;
@@ -149,6 +155,7 @@ int main(int argc, char *argv[]){
     // start the server;
     backend = RPC_Connect(myIP, port);
     if (backend == NULL){
+        // Check if it even connected.
         printf("ERROR: cannot connect!");
         return -1;
     }
