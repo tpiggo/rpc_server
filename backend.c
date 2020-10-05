@@ -21,24 +21,24 @@
 #define PIPEBUF 64
 
 /*
-    Functions to be used by RPC.
-    How to implement sleep(int x)??
+	Functions to be used by RPC.
+	How to implement sleep(int x)??
 */
 int addInts(int x, int y){
-    return x+y;
+	return x+y;
 }
 int multiplyInts(int x, int y){
-    return x*y;
+	return x*y;
 }
 float divideFloats(float x, float y){
-    return x/y;
+	return x/y;
 }
 uint64_t factorial(int x){
-    uint64_t start = 1;
-    for (int i = 1; i<=x; i++){
-        start = start*i;
-    }
-    return start;
+	uint64_t start = 1;
+	for (int i = 1; i<=x; i++){
+		start = start*i;
+	}
+	return start;
 }
 
 int sleep_rpc(int x){
@@ -46,189 +46,189 @@ int sleep_rpc(int x){
 	return 0;
 }
 /* 
-    Functions for RPC and its activities.
+	Functions for RPC and its activities.
 */
 
 rpc_t *RPC_Init(char *host, int port){
-    // Connect to the server
-    int sockfd;
-    if(create_server(host, port, &sockfd) < 0){
-        fprintf(stderr, "RPC_Init(): oh no\n");
-        return NULL;
-    }
-    // return the pointer to the server
-    rpc_t* serv = (rpc_t *)malloc(sizeof(struct rpc_t));
+	// Connect to the server
+	int sockfd;
+	if(create_server(host, port, &sockfd) < 0){
+		fprintf(stderr, "RPC_Init(): oh no\n");
+		return NULL;
+	}
+	// return the pointer to the server
+	rpc_t* serv = (rpc_t *)malloc(sizeof(struct rpc_t));
 	if (serv==NULL){
 		// Memory issue!
 		printf("Error: Out of memory!\n");
 		return NULL;
 	}
-    serv->sockfd = sockfd;
-    serv->shutdown = 0;
-    return serv;
+	serv->sockfd = sockfd;
+	serv->shutdown = 0;
+	return serv;
 }
 
 
 void RPC_Close(rpc_t *r){
-    // close the server and free its resources.
-    close(r->sockfd);
-    free(r);
+	// close the server and free its resources.
+	close(r->sockfd);
+	free(r);
 }
 
 char ** parse_args(int length, char *args){
-    char ** parsed = (char**)malloc(sizeof(char*)*length);
-    for (int i = 0; i <length; i++){
-        *(parsed+i) = (char*)malloc(sizeof(char));
-    }
+	char ** parsed = (char**)malloc(sizeof(char*)*length);
+	for (int i = 0; i <length; i++){
+		*(parsed+i) = (char*)malloc(sizeof(char));
+	}
 
 	if (parsed==NULL){
 		// Memory issue!
 		printf("Error: Out of memory!\n");
 	}
-    // Fix the arguments
-    char *token = strtok(args, " ");
-    int i = 0;
-    while(token != NULL && i<length){
-        strcpy(*(parsed+i), token);
-        token = strtok(NULL, " ");
-        i++;
-    } if (token!=NULL || i != length ){
-      /* If the tocken is not NULL or the number of arguments
-      * you have parsed is less than the length; You didn't
-      * receive enough arguments. Could take that condition
-      * out since we are going to be parsing on the front-end.
-      * Return NULL if either are true as you have a problem.
-      */ 
-        return NULL;
-    }
-    return parsed;
+	// Fix the arguments
+	char *token = strtok(args, " ");
+	int i = 0;
+	while(token != NULL && i<length){
+		strcpy(*(parsed+i), token);
+		token = strtok(NULL, " ");
+		i++;
+	} if (token!=NULL || i != length ){
+	/* If the tocken is not NULL or the number of arguments
+	* you have parsed is less than the length; You didn't
+	* receive enough arguments. Could take that condition
+	* out since we are going to be parsing on the front-end.
+	* Return NULL if either are true as you have a problem.
+	*/ 
+		return NULL;
+	}
+	return parsed;
 }
 
 void RPC_Serve(rpc_t *r, char* name, char * args, int client){
-    /* Using an if else structure of code for handling each different
-    * function. Wanted to dynamically link the functions to the rpc_t
-    * but never found an easy way since each function has a different
-    * signature.
-    */
-   	server_msg serv_msg = {"","",0};
-    char mess[BUFSIZE];
+	/* Using an if else structure of code for handling each different
+	* function. Wanted to dynamically link the functions to the rpc_t
+	* but never found an easy way since each function has a different
+	* signature.
+	*/
+	server_msg serv_msg = {"","",0};
+	char mess[BUFSIZE];
 	if (strcmp(name, "add")==0){
 		int length = 2;
 		// Get the arguments seperated
-        char ** parsed = parse_args(length, args);
-        // Verify validity or return
-        if (parsed == NULL){
-          sprintf(serv_msg.error_msg, "Error: Invalid arguments. %s takes %d arguments", "add", length);
-		  serv_msg.error = 1;
-		  //No need to free.
-        } else {
-          int ret = addInts(atoi(parsed[0]), atoi(parsed[1]));
-          sprintf(serv_msg.ret_val, "%d", ret);
-          // free dynamically allocated memory
-          for (int i = 0; i<length; i++){
-            free(*(parsed+i));
-          }
-            free(parsed);
-        }
+		char ** parsed = parse_args(length, args);
+		// Verify validity or return
+		if (parsed == NULL){
+		sprintf(serv_msg.error_msg, "Error: Invalid arguments. %s takes %d arguments", "add", length);
+		serv_msg.error = 1;
+		//No need to free.
+		} else {
+		int ret = addInts(atoi(parsed[0]), atoi(parsed[1]));
+		sprintf(serv_msg.ret_val, "%d", ret);
+		// free dynamically allocated memory
+		for (int i = 0; i<length; i++){
+			free(*(parsed+i));
+		}
+			free(parsed);
+		}
 	} else if (strcmp(name, "multiply")==0){
 		int length = 2;
 		// Get the arguments seperated
-        char ** parsed = parse_args(length, args);
-        // Verify validity or return error
-        if (parsed == NULL){
-          sprintf(serv_msg.error_msg, "Error: Invalid arguments. %s takes %d arguments", "multiply", length);
-		  serv_msg.error = 1;
-          //No need to free.
-        } else {
-          int ret = multiplyInts(atoi(parsed[0]), atoi(parsed[1]));
-          sprintf(serv_msg.ret_val, "%d", ret);
-          // free dynamically allocated memory
-          for (int i = 0; i<length; i++){
-            free(*(parsed+i));
-          }
-          free(parsed);
-        }
+		char ** parsed = parse_args(length, args);
+		// Verify validity or return error
+		if (parsed == NULL){
+		sprintf(serv_msg.error_msg, "Error: Invalid arguments. %s takes %d arguments", "multiply", length);
+		serv_msg.error = 1;
+		//No need to free.
+		} else {
+		int ret = multiplyInts(atoi(parsed[0]), atoi(parsed[1]));
+		sprintf(serv_msg.ret_val, "%d", ret);
+		// free dynamically allocated memory
+		for (int i = 0; i<length; i++){
+			free(*(parsed+i));
+		}
+		free(parsed);
+		}
 	} else if (strcmp(name, "divide")==0){
 		int length = 2;
 		// Get the arguments seperated
-        char ** parsed = parse_args(length, args);
-        // Verify validity or return
-        if (parsed == NULL){
-          sprintf(serv_msg.error_msg, "Error: Invalid arguments. %s takes %d arguments", "divide", length);
-		  serv_msg.error = 1;
-          //No need to free.
-        } else {
-          float f1 = atof(parsed[0]);
-          float f2 = atof(parsed[1]);
-          if (f2==0){
-            sprintf(serv_msg.error_msg, "Error: Division by zero!");
+		char ** parsed = parse_args(length, args);
+		// Verify validity or return
+		if (parsed == NULL){
+		sprintf(serv_msg.error_msg, "Error: Invalid arguments. %s takes %d arguments", "divide", length);
+		serv_msg.error = 1;
+		//No need to free.
+		} else {
+		float f1 = atof(parsed[0]);
+		float f2 = atof(parsed[1]);
+		if (f2==0){
+			sprintf(serv_msg.error_msg, "Error: Division by zero!");
 			serv_msg.error = 1;
-          } else {
-            float ret = divideFloats(f1, f2);
-            sprintf(serv_msg.ret_val, "%f", ret);
-          }
-          // free the memory!
-          // free dynamically allocated memory
-          for (int i = 0; i<length; i++){
-            free(*(parsed+i));
-          }
-          free(parsed);
-        }
+		} else {
+			float ret = divideFloats(f1, f2);
+			sprintf(serv_msg.ret_val, "%f", ret);
+		}
+		// free the memory!
+		// free dynamically allocated memory
+		for (int i = 0; i<length; i++){
+			free(*(parsed+i));
+		}
+		free(parsed);
+		}
 	} else if (strcmp(name, "factorial")==0){
 		int length = 1;
 		// Get the arguments seperated
-        char ** parsed = parse_args(length, args);
-        // Verify validity or return
-        if (parsed == NULL){
-          sprintf(serv_msg.error_msg, "Error: Invalid arguments. %s takes %d arguments", "factorial", length);
-		  serv_msg.error = 1;
-          //No need to free.
-        } else {
-          uint64_t ret = factorial(atoi(parsed[0]));
-          sprintf(serv_msg.ret_val, "%ld", ret);
-          // free the memory!
-          // free dynamically allocated memory
-          free(*(parsed));
-          free(parsed);
-        }
+		char ** parsed = parse_args(length, args);
+		// Verify validity or return
+		if (parsed == NULL){
+		sprintf(serv_msg.error_msg, "Error: Invalid arguments. %s takes %d arguments", "factorial", length);
+		serv_msg.error = 1;
+		//No need to free.
+		} else {
+		uint64_t ret = factorial(atoi(parsed[0]));
+		sprintf(serv_msg.ret_val, "%ld", ret);
+		// free the memory!
+		// free dynamically allocated memory
+		free(*(parsed));
+		free(parsed);
+		}
 	} else if (strcmp(name, "sleep")==0){
 		int length = 1;
 		// Get the arguments seperated
-        char ** parsed = parse_args(length, args);
-        // Verify validity or return
-        if (parsed == NULL){
-          sprintf(serv_msg.error_msg, "Error: Invalid arguments. %s takes %d arguments", "sleep", length);
-		  serv_msg.error = 1;
-          //No need to free.
-        } else {
-          int time = atoi(parsed[0]);
-          sleep_rpc(time);
-          // find free mem above
-          // free dynamically allocated memory
-          free(*(parsed));
-          free(parsed);
-        }
+		char ** parsed = parse_args(length, args);
+		// Verify validity or return
+		if (parsed == NULL){
+		sprintf(serv_msg.error_msg, "Error: Invalid arguments. %s takes %d arguments", "sleep", length);
+		serv_msg.error = 1;
+		//No need to free.
+		} else {
+		int time = atoi(parsed[0]);
+		sleep_rpc(time);
+		// find free mem above
+		// free dynamically allocated memory
+		free(*(parsed));
+		free(parsed);
+		}
 	}else{
-      // Not found! Error!!!
-      sprintf(serv_msg.error_msg, "Error: Command \"%s\" not found!", name);
-	  serv_msg.error = 1;
-    }
-    send_message(client, (char *)&serv_msg, BUFSIZE);
+	// Not found! Error!!!
+	sprintf(serv_msg.error_msg, "Error: Command \"%s\" not found!", name);
+	serv_msg.error = 1;
+	}
+	send_message(client, (char *)&serv_msg, BUFSIZE);
 }
 
 /*
-  User defined functions for handling server connections
+User defined functions for handling server connections
 */
 int accept_on_server_socket(rpc_t *serv){
-    int clientfd;
-    if (accept_connection(serv->sockfd, &clientfd)){
-        fprintf(stderr, "accept_on_server(): oh no\n");
-        // kill the process
-        return -1;
-    }
+	int clientfd;
+	if (accept_connection(serv->sockfd, &clientfd)){
+		fprintf(stderr, "accept_on_server(): oh no\n");
+		// kill the process
+		return -1;
+	}
 	printf("clientfd accepted on : %d\n", getpid());
-    send_message(clientfd, (const char*)serv, BUFSIZE);
-    return clientfd;
+	send_message(clientfd, (const char*)serv, BUFSIZE);
+	return clientfd;
 }
 /*
 * Servee the client! Handling the connection for a single
@@ -238,10 +238,10 @@ int accept_on_server_socket(rpc_t *serv){
 * server: pointer to the server
 */
 int serv_client(int client, rpc_t *server){
-  int quit_shut = 0;
-  // enter the loop if the server shutdown is not the current setting.
-  // If it is, cancels closes the server.
-    while (1) {
+int quit_shut = 0;
+// enter the loop if the server shutdown is not the current setting.
+// If it is, cancels closes the server.
+	while (1) {
 		char msg[BUFSIZE];
 		memset(msg, 0, sizeof(msg));
 		// Receive the message and send it to the
@@ -260,14 +260,14 @@ int serv_client(int client, rpc_t *server){
 			break;
 		}
 		RPC_Serve(server, amess->cmd, amess->args, client);
-    }
+	}
 	server_msg return_msg = {"", "", 0};
-    strcpy(return_msg.ret_val, "Goodbye!");
+	strcpy(return_msg.ret_val, "Goodbye!");
 	send_message(client, (char *)&return_msg, BUFSIZE);
 	// Close the client here!
 	close(client);
-    printf("Done serv_loop!\n");
-    return quit_shut;
+	printf("Done serv_loop!\n");
+	return quit_shut;
 }
 
 /*
@@ -346,9 +346,9 @@ int removeclientPID(child_t arr[], int length, pid_t pid){
 */
 
 int main(int argc, char* argv[]){
-    // Standard process checking for the inputs of the file.
-    // We need a ip and a port. Without it, it will fail to
-    // start.
+	// Standard process checking for the inputs of the file.
+	// We need a ip and a port. Without it, it will fail to
+	// start.
 	if (argc <= 2){
 		printf("ERROR: Too few arguments, failed to start. Takes 2 arguments, IP and port.\n");
 		return -1;
@@ -461,8 +461,8 @@ int main(int argc, char* argv[]){
 		}
 	}
 	// Close the server connection.
-    RPC_Close(server);
-    printf("Done main loop!\n");
-    return 0;
+	RPC_Close(server);
+	printf("Done main loop!\n");
+	return 0;
 
 }
