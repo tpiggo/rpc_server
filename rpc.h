@@ -29,12 +29,6 @@ typedef struct server_msg{
     char error_msg[ARGS_LENGTH];
     int error;
 } server_msg;
-/*
-    Interface for representing the functions offered in the service.
-    char* name: name given to the function in order to call
-    char* params: parameter type of the function
-    int values: number of values passed.
-*/
 
 /*
     Interface for representing the rpc type
@@ -51,6 +45,11 @@ typedef struct rpc_t{
     int shutdown;
 }rpc_t;
 
+/* 
+    Type defining the struct for the management of the child processes.
+    int clientfd: The client connection file descriptor.
+    pid_t childPID: The child process pid.
+*/
 typedef struct child_t{
     int clientfd;
     pid_t childPID;

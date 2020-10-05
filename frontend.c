@@ -13,12 +13,6 @@
 
 #define BUFSIZE   1024
 
-/*
-* Connecting to a remote RPC. returns the pointer to the remote rpc.
-* Params:
-* host: string which contains the server ip number
-* port: integer representing the port which the ip is hosting the server. Bind.
-*/
 rpc_t *RPC_Connect(char *host, int port){
     // defining our variables
     int sockfd;
@@ -28,7 +22,7 @@ rpc_t *RPC_Connect(char *host, int port){
         fprintf(stderr, "RPC_Connect(): oh no\n");
         return NULL;
     }
-    printf("RPC sockfd: %d\n", sockfd);
+    
     // Retreive the server rpc from the backend
     ssize_t ret = recv_message(sockfd, message, BUFSIZE);
     if (ret <= 0){
@@ -36,19 +30,12 @@ rpc_t *RPC_Connect(char *host, int port){
     }
     rpc_t* extra = (rpc_t *)message;
     rpc_t *serv = (struct rpc_t*)malloc(sizeof(struct rpc_t));
-    printf("NULL=%d", extra == NULL);
     serv->shutdown = extra->shutdown;
     serv->sockfd=sockfd;
     return serv;
     
 }
 
-
-/*
-* closing the remote connection to the server, deallocating the space.
-* Params:
-* r: pointer to the rpc server.
-*/
 void RPC_Close(rpc_t *r){
     // close the connection to the socket from the clients end. 
     close(r->sockfd);
@@ -56,13 +43,6 @@ void RPC_Close(rpc_t *r){
     free(r);
 }
 
-/*
-* closing the remote connection to the server, deallocating the space.
-* Params:
-* r: pointer to the rpc server.
-* name: string with the name of the command we want to call
-* args: arguments which are to be sent.
-*/
 void RPC_Call(rpc_t *r, char* name, char * args){    
     char server_mes[BUFSIZE];
     memset(server_mes, 0, sizeof(server_mes));
@@ -89,11 +69,6 @@ void RPC_Call(rpc_t *r, char* name, char * args){
     }
 }
 
-/*
-* Creating a client message to be sent over the server.
-* Params:
-* input: string of input which needs to be parsed 
-*/
 client_msg parse_line(char *input){
     client_msg command;
     // fix the end of the string (take off new line char)
@@ -156,7 +131,7 @@ int main(int argc, char *argv[]){
     backend = RPC_Connect(myIP, port);
     if (backend == NULL){
         // Check if it even connected.
-        printf("ERROR: cannot connect!");
+        printf("ERROR: cannot connect!\n");
         return -1;
     }
     while (backend->shutdown == 0) {

@@ -40,6 +40,11 @@ uint64_t factorial(int x){
     }
     return start;
 }
+
+int sleep_rpc(int x){
+	sleep(x);
+	return 0;
+}
 /* 
     Functions for RPC and its activities.
 */
@@ -70,14 +75,6 @@ void RPC_Close(rpc_t *r){
     free(r);
 }
 
-/*
-  Seperating the arguments received by the server in the message.
-  Creates a dynamic array of strings.
-  int length: is the number of strings you want to have
-  char *args: The arguments which need parsing.
-
-*/
-
 char ** parse_args(int length, char *args){
     char ** parsed = (char**)malloc(sizeof(char*)*length);
     for (int i = 0; i <length; i++){
@@ -106,15 +103,6 @@ char ** parse_args(int length, char *args){
     }
     return parsed;
 }
-
-/*
-* Function for servicing the RPC call
-* rpc_t r: pointer to the server
-* char *name: name of the function we need to call
-* char *args: argument for said function
-* int client: the clients socket fd. 
-*/
-
 
 void RPC_Serve(rpc_t *r, char* name, char * args, int client){
     /* Using an if else structure of code for handling each different
@@ -214,7 +202,7 @@ void RPC_Serve(rpc_t *r, char* name, char * args, int client){
           //No need to free.
         } else {
           int time = atoi(parsed[0]);
-          sleep(time);
+          sleep_rpc(time);
           // find free mem above
           // free dynamically allocated memory
           free(*(parsed));
@@ -222,7 +210,7 @@ void RPC_Serve(rpc_t *r, char* name, char * args, int client){
         }
 	}else{
       // Not found! Error!!!
-      sprintf(serv_msg.error_msg, "Error: \"%s\" not found!", name);
+      sprintf(serv_msg.error_msg, "Error: Command \"%s\" not found!", name);
 	  serv_msg.error = 1;
     }
     send_message(client, (char *)&serv_msg, BUFSIZE);
@@ -230,14 +218,6 @@ void RPC_Serve(rpc_t *r, char* name, char * args, int client){
 
 /*
   User defined functions for handling server connections
-*/
-/*
-* Finding the position in the list of children for a specified child. Will return -1
-* to indicate process not found.
-* Params:
-* clients[]: array of child processes
-* length: integer of the length of the array
-* id: process id in question.
 */
 int accept_on_server_socket(rpc_t *serv){
     int clientfd;
@@ -471,7 +451,7 @@ int main(int argc, char* argv[]){
 	// Waiting until no children are left.
 	printf("Exited Main Loop\n");
 	while(isempty(clients, MAXCLIENTS) == 0){
-		ret = waitpid(-1, &retstat, WNOHANG);
+		ret = wait(&retstat);
 		if ( WIFEXITED(retstat) && ret > 0){
 			// get bakc the client fd
 			ret = removeclientPID(clients, MAXCLIENTS, ret);
@@ -480,7 +460,7 @@ int main(int argc, char* argv[]){
 			close(ret);
 		}
 	}
-
+	// Close the server connection.
     RPC_Close(server);
     printf("Done main loop!\n");
     return 0;
