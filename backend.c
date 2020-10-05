@@ -435,7 +435,7 @@ int main(int argc, char* argv[]){
 			// Serve the client.
 			int ret2 = serv_client(clientfd, server);
 			close(clientfd);
-			return ret2;
+			exit(ret2);
 		} else{
 			// Add the client to the list of children
 			addclient(clients, MAXCLIENTS, child, clientfd);
